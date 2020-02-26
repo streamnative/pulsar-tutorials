@@ -186,3 +186,103 @@ bin/bookkeeper shell simpletest
 
 
 ```
+docker run -it --rm -d \
+    -v $(pwd)/conf/cluster0:/pulsar/conf \
+    --network ${PULSAR_NETWORK} \
+    --name cluster0-broker0 \
+    --hostname cluster0-broker0 \
+    -p 6650:6650 \
+    -p 8080:8080 \
+    apachepulsar/pulsar-all:2.5.0 \
+    bin/pulsar broker
+```
+
+```
+docker run -it --rm -d \
+    -v $(pwd)/conf/cluster0:/pulsar/conf \
+    --network ${PULSAR_NETWORK} \
+    --name cluster0-broker1 \
+    --hostname cluster0-broker1 \
+    -p 6651:6650 \
+    -p 8081:8080 \
+    apachepulsar/pulsar-all:2.5.0 \
+    bin/pulsar broker
+```
+
+### 6. Broker health check
+
+on broker node
+
+```
+bin/pulsar-admin tenants list
+```
+
+### 7. Start proxies
+
+```
+docker run -it --rm -d \
+    -v $(pwd)/conf/cluster0:/pulsar/conf \
+    --network ${PULSAR_NETWORK} \
+    --name cluster0-proxy \
+    --hostname cluster0-proxy \
+    -p 6750:6650 \
+    -p 8180:8080 \
+    apachepulsar/pulsar-all:2.5.0 \
+    bin/pulsar proxy
+```
+
+### 8. Proxy health check
+
+on your laptop, configure your client tool to talk to the proxy, and run:
+
+```
+bin/pulsar-admin tenants list
+```
+
+### 9. Start prometheus
+
+```
+docker run -it --rm -d \
+    -p 9090:9090 \
+    -v $(pwd)/conf/cluster0/prometheus.yml:/etc/prometheus/prometheus.yml \
+    --network ${PULSAR_NETWORK} \
+    --name cluster0-prometheus \
+    --hostname cluster0-prometheus \
+    prom/prometheus
+```
+
+### 10. Start grafana
+
+```
+docker run -it --rm -d \
+    -p 3000:3000 \
+    --network ${PULSAR_NETWORK} \
+    --name cluster0-grafana \
+    --hostname cluster0-grafana \
+    -e PULSAR_PROMETHEUS_URL="http://cluster0-prometheus:9090" \
+    -e PULSAR_CLUSTER="${PULSAR_CLUSTER}" \
+    streamnative/apache-pulsar-grafana-dashboard:latest
+```
+
+### 11. Start Pulsar Manager
+
+```bash
+mkdir -p data/cluster0-pm
+```
+
+```
+docker run -it --rm -d \
+    -p 9527:9527 \
+    -e REDIRECT_HOST=http://localhost \
+    -e REDIRECT_PORT=9527 \
+    -e DRIVER_CLASS_NAME=org.postgresql.Driver \
+    -e URL='jdbc:postgresql://127.0.0.1:5432/pulsar_manager' \
+    -e USERNAME=pulsar \
+    -e PASSWORD=pulsar \
+    -e LOG_LEVEL=DEBUG \
+    -v $(pwd)/data/cluster0-pm:/data \
+    --network ${PULSAR_NETWORK} \
+    --name cluster0-pm \
+    --hostname cluster0-pm \
+    apachepulsar/pulsar-manager:v0.1.0 /bin/sh
+```
